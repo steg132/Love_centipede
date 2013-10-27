@@ -1,3 +1,7 @@
 # .gitignore
-# Ignore vim swap files
+# Normal ignore files
 *.swp
+*.bak
+.DS_Store
+
+
