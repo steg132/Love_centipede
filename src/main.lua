@@ -39,6 +39,7 @@ function initPlayer()
 		y = math.floor(grid.height / 2)
 	}
 	player.direction = DIRECTION_UP
+	player.lastDirection = -1
 	player.move = {
 		[DIRECTION_UP] = function() player.head.y = player.head.y - 1 end,
 		[DIRECTION_DOWN] = function() player.head.y = player.head.y + 1 end,
@@ -57,15 +58,30 @@ function love.update(dt)
 	if  sinceLastMove > ( player.speed / 60 ) then
 		-- update our last move
 		sinceLastMove = 0
+		
 		-- Add the player head to the body
 		Queue.pushleft(player.body, {x=player.head.x, y=player.head.y})	
 		
 		-- move the player
 		player.move[player.direction]()
 		-- check if we hit anything
-		checkDeath()
-		spawnFood()
- end
+		if checkDeath() or checkBodyCollision(player.head.x, player.head.y) then 
+			endGame()
+		else
+			if true == checkFood() then
+				spawnFood()
+				player.speed = player.speed
+			else
+				Queue.popright(player.body)
+			end
+			if Queue.length(player.body) > 0 then
+				player.bodyDirection = player.direction - 2
+				if player.bodyDirection < 0 then
+					player.bodyDirection = player.bodyDirection + 4
+				end
+			end
+		end
+	end
 end
 
 function spawnFood()
@@ -74,24 +90,42 @@ function spawnFood()
 			x = math.random(grid.width - 2),
 			y = math.random(grid.height- 2) 
 		}
-		if food.x == player.head.x and food.y == player.head.y then
-			-- the food spawned ontop of the player
-			-- continue
-		else
-			break
+		if food.x ~= player.head.x and food.y ~= player.head.y then
+			-- Food did not spawn on the player head
+			if false == checkBodyCollision(food.x, food.y) then
+				-- food did not spawn on the player body
+				break
+			end
 		end
 	end
 end
 
+function checkBodyCollision(x, y)
+	for i=player.body.first,player.body.last do
+		if player.body[i].x == x and player.body[i].y == y then
+			return true
+		end
+	end
+	return false
+end
+
 function updateDirection() 
 	if love.keyboard.isDown("up") then
-		player.direction = DIRECTION_UP
+		if player.bodyDirection ~= DIRECTION_UP then
+			player.direction = DIRECTION_UP
+		end
 	elseif love.keyboard.isDown("right") then
-		player.direction = DIRECTION_RIGHT
+		if player.bodyDirection ~= DIRECTION_RIGHT then
+			player.direction = DIRECTION_RIGHT
+		end
 	elseif love.keyboard.isDown("down") then
-		player.direction = DIRECTION_DOWN
+		if player.bodyDirection ~= DIRECTION_DOWN then
+			player.direction = DIRECTION_DOWN
+		end
 	elseif love.keyboard.isDown("left") then
-		player.direction = DIRECTION_LEFT
+		if player.bodyDirection ~= DIRECTION_LEFT then
+			player.direction = DIRECTION_LEFT
+		end
 	end
 end
 
@@ -99,13 +133,22 @@ function checkDeath()
 	-- Check edge collision
 	if player.head.x == 0 or player.head.x == grid.width-1 or 
 		player.head.y == 0 or player.head.y == grid.height-1 then
-		endGame()
+		return true
 	end
 	-- check body collision
+	return false
+end
+function checkFood()
+	-- check if we hit any food
+	if player.head.x == food.x and player.head.y == food.y then
+		return true
+	end
+	return false
 end
 
 function endGame()
 	initPlayer()
+	spawnFood()
 end
 
 function love.draw()
@@ -136,9 +179,16 @@ function drawGrid()
 end
 
 function drawPlayer()
+	love.graphics.setColor(0,0,255,255)
+	-- Draw teh body
+	for i=player.body.first,player.body.last do
+		drawTile(player.body[i].x, player.body[i].y)
+	end
+
 	-- Draw the head first
 	love.graphics.setColor(255,0,0,255)
 	drawTile(player.head.x, player.head.y)
+
 end
 
 function drawFood()
